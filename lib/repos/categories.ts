@@ -100,3 +100,46 @@ export async function listCategoryFacetsFiltered(filters: ProductFilters) {
   });
   return cats;
 }
+
+export async function listProductFacetCountsFiltered(
+  filters: ProductFilters
+): Promise<{ brands: Record<string, number>; colors: Record<string, number>; sizes: Record<string, number> }> {
+  if (MOCK) {
+    return {
+      brands: { Acme: 10, Globex: 8, Umbrella: 6 },
+      colors: { black: 12, white: 9, red: 4, blue: 7 },
+      sizes: { S: 5, M: 9, L: 6 },
+    };
+  }
+  const client: any = prisma as any;
+  const [brandRows, colorRows, sizeRows]: [any[], any[], any[]] = await Promise.all([
+    client.product.findMany({ where: buildWhere(filters, ['brands']), select: { brand: true } }),
+    client.product.findMany({ where: buildWhere(filters, ['colors']), select: { color: true } }),
+    client.product.findMany({ where: buildWhere(filters, ['sizes']), select: { size: true } }),
+  ]);
+  const brands: Record<string, number> = {};
+  for (const r of brandRows) if (r.brand) brands[r.brand] = (brands[r.brand] ?? 0) + 1;
+  const colors: Record<string, number> = {};
+  for (const r of colorRows) if (r.color) colors[r.color] = (colors[r.color] ?? 0) + 1;
+  const sizes: Record<string, number> = {};
+  for (const r of sizeRows) if (r.size) sizes[r.size] = (sizes[r.size] ?? 0) + 1;
+  return { brands, colors, sizes } as { brands: Record<string, number>; colors: Record<string, number>; sizes: Record<string, number> };
+}
+
+export async function listCategoryFacetCountsFiltered(filters: ProductFilters) {
+  if (MOCK) return mockCategories.map((c) => ({ ...c, count: 1 }));
+  const client: any = prisma as any;
+  const prodRows: Array<{ categoryId: string | null }> = await client.product.findMany({
+    where: buildWhere(filters, ['categorySlugs']),
+    select: { categoryId: true },
+  });
+  const countsById = new Map<string, number>();
+  for (const r of prodRows) {
+    if (!r.categoryId) continue;
+    countsById.set(r.categoryId, (countsById.get(r.categoryId) ?? 0) + 1);
+  }
+  const ids = Array.from(countsById.keys());
+  if (!ids.length) return [] as Array<{ slug: string; name: string; count: number }>;
+  const cats = await prisma.category.findMany({ where: { id: { in: ids as any } }, select: { id: true, slug: true, name: true } });
+  return cats.map((c) => ({ slug: c.slug, name: c.name, count: countsById.get(c.id) ?? 0 }));
+}

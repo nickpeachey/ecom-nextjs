@@ -1,8 +1,9 @@
 import ProductCard from '@/components/ProductCard';
 import { listProductsPaginated } from '@/lib/repos/products';
-import { listCategoryFacets, listProductFacetValues, listProductFacetValuesFiltered, listCategoryFacetsFiltered } from '@/lib/repos/categories';
+import { listCategoryFacets, listProductFacetValues, listProductFacetValuesFiltered, listCategoryFacetsFiltered, listProductFacetCountsFiltered, listCategoryFacetCountsFiltered } from '@/lib/repos/categories';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import Filters from '@/components/Filters';
 import type { Product } from '@prisma/client';
 
 type FiltersProps = { searchParams: { [key: string]: string | string[] | undefined } };
@@ -43,10 +44,12 @@ export default async function HomePage({ searchParams }: FiltersProps) {
     sizes: selectedSizes,
   } as const;
 
-  const [catsFiltered, facetValues, allCats, paged] = await Promise.all([
+  const [catsFiltered, facetValues, allCats, counts, catCounts, paged] = await Promise.all([
     listCategoryFacetsFiltered(activeFilters),
     listProductFacetValuesFiltered(activeFilters),
     listCategoryFacets(),
+    listProductFacetCountsFiltered(activeFilters),
+    listCategoryFacetCountsFiltered(activeFilters),
     listProductsPaginated(activeFilters, page, perPage),
   ]);
 
@@ -58,7 +61,8 @@ export default async function HomePage({ searchParams }: FiltersProps) {
 
   const catNameBySlug = new Map(allCats.map((c) => [c.slug, c.name] as const));
   const catSlugSet = new Set([...(catsFiltered?.map((c) => c.slug) ?? []), ...selectedCats]);
-  const cats = Array.from(catSlugSet).map((slug) => ({ slug, name: catNameBySlug.get(slug) ?? slug }));
+  const catCountBySlug = new Map(catCounts.map((c) => [c.slug, c.count] as const));
+  const cats = Array.from(catSlugSet).map((slug) => ({ slug, name: catNameBySlug.get(slug) ?? slug, count: catCountBySlug.get(slug) ?? 0 }));
   const products = paged.items as Array<Pick<Product, 'id' | 'name' | 'slug' | 'price' | 'images'>>;
   const total = paged.total;
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -81,135 +85,20 @@ export default async function HomePage({ searchParams }: FiltersProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <aside className="lg:col-span-3 space-y-6">
-        <form className="space-y-6" action="/" method="get">
-          <fieldset className="space-y-3">
-            <legend className="text-sm uppercase tracking-wide text-neutral-400">Categories</legend>
-            <div className="max-h-64 overflow-auto pr-2">
-              {cats.map((c) => {
-                const checked = selectedCats.includes(c.slug);
-                return (
-                  <label key={c.slug} className="flex items-center gap-2 py-1">
-                    <input
-                      type="checkbox"
-                      name="category"
-                      value={c.slug}
-                      defaultChecked={checked}
-                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-blue-500 focus:ring-blue-500"
-                    />
-                    <span className="text-sm">{c.name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset className="space-y-3">
-            <legend className="text-sm uppercase tracking-wide text-neutral-400">Brands</legend>
-            <div className="max-h-40 overflow-auto pr-2">
-              {brandOptions.map((b) => {
-                const checked = selectedBrands.includes(b);
-                return (
-                  <label key={b} className="flex items-center gap-2 py-1">
-                    <input
-                      type="checkbox"
-                      name="brand"
-                      value={b}
-                      defaultChecked={checked}
-                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-blue-500 focus:ring-blue-500"
-                    />
-                    <span className="text-sm">{b}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset className="space-y-3">
-            <legend className="text-sm uppercase tracking-wide text-neutral-400">Colors</legend>
-            <div className="flex flex-wrap gap-2">
-              {colorOptions.map((c) => {
-                const checked = selectedColors.includes(c);
-                return (
-                  <label key={c} className="inline-flex items-center gap-2 py-1 px-2 border border-neutral-700 rounded-md hover:border-neutral-600">
-                    <input
-                      type="checkbox"
-                      name="color"
-                      value={c}
-                      defaultChecked={checked}
-                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-blue-500 focus:ring-blue-500"
-                    />
-                    <span
-                      className="h-4 w-4 rounded-full border border-neutral-600 shadow-inner"
-                      style={{ backgroundColor: c.toLowerCase() }}
-                      aria-hidden="true"
-                      title={c}
-                    />
-                    <span className="text-xs capitalize">{c}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset className="space-y-3">
-            <legend className="text-sm uppercase tracking-wide text-neutral-400">Sizes</legend>
-            <div className="flex flex-wrap gap-2">
-              {sizeOptions.map((s) => {
-                const checked = selectedSizes.includes(s);
-                return (
-                  <label key={s} className="inline-flex items-center gap-2 py-1 px-2 border border-neutral-700 rounded-md hover:border-neutral-600">
-                    <input
-                      type="checkbox"
-                      name="size"
-                      value={s}
-                      defaultChecked={checked}
-                      className="h-4 w-4 rounded border-neutral-700 bg-neutral-900 text-blue-500 focus:ring-blue-500"
-                    />
-                    <span className="text-xs inline-flex items-center gap-1">
-                      {/* Simple t-shirt glyph with size-varying dimensions */}
-                      {(() => {
-                        const dims: Record<string, number> = { XS: 10, S: 12, M: 14, L: 16, XL: 18, XXL: 20 };
-                        const d = dims[s] ?? 14;
-                        return (
-                          <svg
-                            width={d}
-                            height={d}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            aria-hidden
-                            className="text-neutral-300"
-                          >
-                            <path
-                              d="M7 4l2.5 2h5L17 4l3 2-2 3v9.5A1.5 1.5 0 0 1 16.5 20h-9A1.5 1.5 0 0 1 6 18.5V9L4 6l3-2z"
-                              fill="currentColor"
-                            />
-                          </svg>
-                        );
-                      })()}
-                      {s}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset className="space-y-3">
-            <legend className="text-sm uppercase tracking-wide text-neutral-400">Price (USD)</legend>
-            {/* Use a client component to show live values while keeping form submission server-friendly */}
-            {(() => {
-              const PriceRange = dynamic(() => import('../components/PriceRange'), { ssr: false });
-              const initialMin = min != null ? Math.round((min as number) / 100) : 0;
-              const initialMax = max != null ? Math.round((max as number) / 100) : 2000;
-              return <PriceRange initialMin={initialMin} initialMax={initialMax} />;
-            })()}
-            <div className="flex items-center gap-2">
-              <button type="submit" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium hover:bg-blue-500">Apply</button>
-              <Link href="/" className="text-sm text-neutral-400 hover:underline">Reset</Link>
-            </div>
-          </fieldset>
-        </form>
+        <Filters
+          categories={cats}
+          brands={brandOptions}
+          colors={colorOptions}
+          sizes={sizeOptions}
+          counts={counts}
+          selectedCats={selectedCats}
+          selectedBrands={selectedBrands}
+          selectedColors={selectedColors}
+          selectedSizes={selectedSizes}
+          min={min != null ? Math.round((min as number) / 100) : 0}
+          max={max != null ? Math.round((max as number) / 100) : 2000}
+          perPage={perPage}
+        />
       </aside>
 
       <section className="lg:col-span-9">
