@@ -1,0 +1,20 @@
+version: '3.9'
+services:
+  mongodb:
+    build: ./docker/mongodb
+    container_name: ecom-mongodb
+    hostname: ecom-mongodb
+    restart: unless-stopped
+    ports:
+      - '${MONGODB_PORT:-27017}:27017'
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongodb/rs-init.js:/docker-entrypoint-initdb.d/rs-init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo-data:

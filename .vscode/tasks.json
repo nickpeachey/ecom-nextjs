@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Setup: Local Env",
+			"type": "shell",
+			"command": "bash ./scripts/setup-local.sh",
+			"group": "build"
+		},
+		{
+			"label": "Dev: Next.js",
+			"type": "shell",
+			"command": "npm run dev",
+			"group": "build",
+			"problemMatcher": [
+				"$eslint-stylish"
+			]
+		},
+		{
+			"label": "Build",
+			"type": "shell",
+			"command": "npm run build",
+			"group": "build",
+			"problemMatcher": [
+				"$tsc"
+			]
+		},
+		{
+			"label": "Setup+Dev",
+			"type": "shell",
+			"command": "bash ./scripts/setup-local.sh && npm run dev",
+			"group": "build"
+		},
+		{
+			"label": "DB: Reset+Seed",
+			"type": "shell",
+			"command": "npm run db:reset-seed",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		}
+	]
+}
